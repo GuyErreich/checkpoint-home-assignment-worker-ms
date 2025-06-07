@@ -1,4 +1,5 @@
-mypy
 boto3-stubs[sqs,s3]
+mypy
 pytest
 pytest-mock
+ruff
