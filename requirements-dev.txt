@@ -1,0 +1,4 @@
+mypy
+boto3-stubs[sqs,s3]
+pytest
+pytest-mock
