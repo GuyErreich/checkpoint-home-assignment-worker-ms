@@ -1,10 +1,11 @@
 import os
 import time
-from typing import Any, Optional
+from typing import Any
+
 import boto3
 from botocore.exceptions import ClientError
-from mypy_boto3_sqs import SQSClient
 from mypy_boto3_s3 import S3Client
+from mypy_boto3_sqs import SQSClient
 from mypy_boto3_sqs.type_defs import MessageTypeDef
 
 sqs: SQSClient = boto3.client("sqs")
@@ -32,7 +33,7 @@ def poll_messages() -> None:
         print(f"AWS error: {e}")
 
 
-def handler(event: Optional[Any] = None, context: Optional[Any] = None) -> None:
+def handler(event: Any | None = None, context: Any | None = None) -> None:
     while True:
         poll_messages()
         time.sleep(5)

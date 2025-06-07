@@ -49,9 +49,32 @@ jobs:
       run: |
         mypy src/
 
-    - name: Run tests with pytest
+    - name: Run tests with pytest and coverage
       run: |
-        pytest tests/ -v --tb=short
+        pytest -v --tb=short
+
+    - name: Generate coverage badge
+      run: |
+        coverage-badge -f -o coverage-badge.svg
+
+    - name: Archive test results and coverage
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-coverage-results
+        path: |
+          htmlcov/
+          coverage.xml
+          coverage-badge.svg
+        retention-days: 30
+
+    - name: Archive coverage HTML report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: coverage-html-report
+        path: htmlcov/
+        retention-days: 30
 
     - name: Test Docker build
       run: |
