@@ -1,2 +1,3 @@
 boto3
 botocore
+boto3-stubs[sqs,s3]
