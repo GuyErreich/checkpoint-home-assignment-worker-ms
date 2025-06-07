@@ -37,3 +37,14 @@ def handler(event: Any | None = None, context: Any | None = None) -> None:
     while True:
         poll_messages()
         time.sleep(5)
+
+
+if __name__ == "__main__":
+    print("Starting ECS worker service...")
+    try:
+        handler()
+    except KeyboardInterrupt:
+        print("Service stopped by user")
+    except Exception as e:
+        print(f"Service error: {e}")
+        raise
