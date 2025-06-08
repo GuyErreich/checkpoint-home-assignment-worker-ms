@@ -14,30 +14,44 @@ from mypy_boto3_sqs.type_defs import (
     ReceiveMessageResultTypeDef,
 )
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    handlers=[logging.StreamHandler(sys.stdout)],
-)
 
-# Create debug logger with function names
-debug_logger = logging.getLogger("worker.debug")
-debug_logger.setLevel(logging.DEBUG)
-debug_handler = logging.StreamHandler(sys.stdout)
-debug_handler.setFormatter(
-    logging.Formatter(
-        "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
-    )
-)
-debug_logger.addHandler(debug_handler)
-debug_logger.propagate = False
+# Configure logging with custom formatter
+class LevelBasedFormatter(logging.Formatter):
+    """Custom formatter that uses different formats based on log level."""
 
-# Main logger
+    def __init__(self) -> None:
+        super().__init__()
+        self.info_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+        self.debug_format = "%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s"
+
+        self.info_formatter = logging.Formatter(self.info_format)
+        self.debug_formatter = logging.Formatter(self.debug_format)
+
+    def format(self, record: logging.LogRecord) -> str:
+        if record.levelno == logging.DEBUG:
+            return self.debug_formatter.format(record)
+        else:
+            return self.info_formatter.format(record)
+
+
+# Configure the logger
 logger = logging.getLogger("worker")
+logger.setLevel(logging.DEBUG)
+
+# Remove any existing handlers
+logger.handlers.clear()
+
+# Create handler with custom formatter
+log_handler = logging.StreamHandler(sys.stdout)
+log_handler.setFormatter(LevelBasedFormatter())
+logger.addHandler(log_handler)
+
+# Prevent propagation to root logger to avoid duplicate messages
+# But allow it to be enabled for testing
+logger.propagate = False
 
 # Configuration
-AWS_REGION: str = os.environ.get("AWS_DEFAULT_REGION", "us-east-1")
+AWS_REGION: str = os.environ["AWS_DEFAULT_REGION"]
 SQS_URL: str = os.environ["SQS_QUEUE_URL"]
 S3_BUCKET: str = os.environ["S3_BUCKET"]
 MAX_CONSECUTIVE_FAILURES = 5
@@ -45,8 +59,9 @@ POLL_INTERVAL = 5
 MAX_BACKOFF = 60
 
 logger.info(f"Initializing AWS clients for region: {AWS_REGION}")
-debug_logger.debug(f"SQS URL: {SQS_URL}")
-debug_logger.debug(f"S3 Bucket: {S3_BUCKET}")
+logger.debug(f"AWS Region: {AWS_REGION}")
+logger.debug(f"SQS URL: {SQS_URL}")
+logger.debug(f"S3 Bucket: {S3_BUCKET}")
 
 try:
     sqs: SQSClient = boto3.client("sqs", region_name=AWS_REGION)
@@ -59,7 +74,7 @@ except (BotoCoreError, ClientError) as e:
 
 def poll_messages() -> None:
     """Poll messages from SQS queue and process them."""
-    debug_logger.debug("Starting to poll messages from SQS")
+    logger.debug("Starting to poll messages from SQS")
 
     try:
         response: ReceiveMessageResultTypeDef = sqs.receive_message(
@@ -68,7 +83,7 @@ def poll_messages() -> None:
         messages: list[MessageTypeDef] = response.get("Messages", [])
 
         if not messages:
-            debug_logger.debug("No messages received from SQS")
+            logger.debug("No messages received from SQS")
             return
 
         logger.info(f"Received {len(messages)} messages from SQS")
@@ -81,7 +96,7 @@ def poll_messages() -> None:
                     f"message-{int(time.time())}-{msg.get('MessageId', 'unknown')}.json"
                 )
 
-                debug_logger.debug(
+                logger.debug(
                     f"Processing message with ID: {msg.get('MessageId', 'unknown')}"
                 )
 
@@ -118,7 +133,7 @@ def handler(event: Any | None = None, context: Any | None = None) -> None:
         try:
             poll_messages()
             consecutive_failures = 0  # Reset counter on success
-            debug_logger.debug(f"Sleeping for {POLL_INTERVAL} seconds before next poll")
+            logger.debug(f"Sleeping for {POLL_INTERVAL} seconds before next poll")
             time.sleep(POLL_INTERVAL)
 
         except (ClientError, BotoCoreError) as e:
